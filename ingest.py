@@ -1,10 +1,11 @@
+# ingest.py
 import os
 from dotenv import load_dotenv
 
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_openai import OpenAIEmbeddings
-from langchain_community.vectorstores import Chroma
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_chroma import Chroma
 
 load_dotenv()
 
@@ -28,6 +29,7 @@ def split_documents(docs):
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=1000,
         chunk_overlap=200,
+        add_start_index=True,
     )
     chunks = splitter.split_documents(docs)
     print(f"[INGEST] Split into {len(chunks)} chunks.")
@@ -35,7 +37,11 @@ def split_documents(docs):
 
 
 def create_vectorstore(chunks):
-    embeddings = OpenAIEmbeddings(model="text-embedding-3-small")  # ✅ new model
+    # 🔹 Local, free embeddings – no OpenAI call
+    embeddings = HuggingFaceEmbeddings(
+        model_name="sentence-transformers/all-MiniLM-L6-v2"
+    )
+
     vectordb = Chroma.from_documents(
         documents=chunks,
         embedding=embeddings,
@@ -47,6 +53,10 @@ def create_vectorstore(chunks):
 
 
 if __name__ == "__main__":
+    if not os.path.isdir(DATA_PATH):
+        print(f"[INGEST] data/ folder not found at {os.path.abspath(DATA_PATH)}")
+        raise SystemExit(1)
+
     docs = load_documents()
     if not docs:
         print("[INGEST] No PDF files found in 'data/' folder. Add PDFs and rerun.")
